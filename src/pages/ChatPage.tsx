@@ -15,9 +15,21 @@ export default function ChatPage() {
   const [onlineNotice, setOnlineNotice] = useState("");
 
   const user = useMemo<AuthUser | null>(() => {
-    const raw = localStorage.getItem("chat_user");
-    return raw ? JSON.parse(raw) : null;
-  }, []);
+  const raw = localStorage.getItem("chat_user");
+
+  // 1. เช็คว่ามีค่าไหม? และต้องไม่ใช่คำว่า "undefined"
+  if (!raw || raw === "undefined") {
+    return null;
+  }
+
+  // 2. ใช้ try-catch ครอบ JSON.parse เผื่อข้อมูลใน localStorage พัง
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    console.error("Failed to parse chat_user from localStorage:", error);
+    return null; // ถ้า parse ไม่ได้ ก็ให้เป็น null ไปเลย
+  }
+}, []);
 
   useEffect(() => {
     const token = localStorage.getItem("chat_token");
