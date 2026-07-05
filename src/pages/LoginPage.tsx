@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MessageCircle } from "lucide-react";
-import { loginUser } from "../services/api";
+import axios from "axios";
+import { checkBackendHealth, loginUser } from "../services/api";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -16,12 +17,24 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      await checkBackendHealth();
+
       const data = await loginUser({ email, password });
       localStorage.setItem("chat_token", data.token);
       localStorage.setItem("chat_user", JSON.stringify(data.user));
       navigate("/", { replace: true });
-    } catch {
-      setError("Login failed. Please check your email and password.");
+    } catch (error) {
+      if (axios.isAxiosError(error) && !error.response) {
+        setError("Cannot connect to server. Please check backend URL or CORS.");
+        return;
+      }
+
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        setError("Invalid email or password.");
+        return;
+      }
+
+      setError("Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -83,7 +96,7 @@ export default function LoginPage() {
           disabled={loading}
           className="w-full rounded-2xl bg-blue-600 px-4 py-3 font-bold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.99]"
         >
-          {loading ? "Logging in..." : "Login"}
+          {loading ? "Checking server..." : "Login"}
         </button>
 
         <p className="mt-5 text-center text-sm text-zinc-400">
