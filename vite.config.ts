@@ -5,6 +5,6 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
-    outDir: "dist", // สำคัญมาก: ต้องตรงกับที่ระบุใน firebase.json
+    outDir: "dist"
   }
 });

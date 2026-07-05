@@ -2,7 +2,7 @@
 node_modules/
 
 # Environment variables (สำคัญมาก: ห้ามหลุดขึ้น GitHub)
-.env
+.env.production
 .env.local
 .env.*.local
 

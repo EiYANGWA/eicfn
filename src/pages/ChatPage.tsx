@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ChatLayout from "../components/ChatLayout";
 import { getMessages } from "../services/api";
@@ -13,42 +13,39 @@ export default function ChatPage() {
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [input, setInput] = useState("");
   const [onlineNotice, setOnlineNotice] = useState("");
-  
-  // 1. ใช้ State แทน useMemo เพื่อให้ React สั่ง Re-render ได้ทันทีถ้าค่าเปลี่ยน
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  // ดึงข้อมูล User ตั้งแต่ Component เริ่ม Load
-  useEffect(() => {
+  const user = useMemo<AuthUser | null>(() => {
     const raw = localStorage.getItem("chat_user");
-    const token = localStorage.getItem("chat_token");
 
-    if (!raw || !token || raw === "undefined") {
-      navigate("/login");
-      return;
+    if (!raw) {
+      return null;
     }
 
     try {
-      setUser(JSON.parse(raw));
-      setLoading(false);
-    } catch (e) {
-      console.error("Auth parsing error:", e);
-      navigate("/login");
+      return JSON.parse(raw) as AuthUser;
+    } catch {
+      localStorage.removeItem("chat_user");
+      localStorage.removeItem("chat_token");
+      return null;
     }
-  }, [navigate]);
+  }, []);
 
-  // 2. จัดการ Socket และการดึงข้อความ (แยก Effect ออกมาเพื่อความสะอาด)
   useEffect(() => {
-    if (!user) return;
+    const token = localStorage.getItem("chat_token");
 
-    const token = localStorage.getItem("chat_token") || "";
+    if (!token || !user) {
+      navigate("/login", { replace: true });
+      return;
+    }
 
-    // ดึงข้อความ
     getMessages()
       .then(setMessages)
-      .catch((err) => console.error("Failed to fetch messages:", err));
+      .catch(() => {
+        localStorage.removeItem("chat_token");
+        localStorage.removeItem("chat_user");
+        navigate("/login", { replace: true });
+      });
 
-    // เชื่อมต่อ Socket
     const socket = connectSocket(token);
 
     socket.on("message:new", (message: Message) => {
@@ -70,21 +67,36 @@ export default function ChatPage() {
     });
 
     socket.on("connect_error", () => {
-      console.error("Socket connection error");
-      navigate("/login");
+      localStorage.removeItem("chat_token");
+      localStorage.removeItem("chat_user");
+      navigate("/login", { replace: true });
     });
 
     return () => {
+      socket.off("message:new");
+      socket.off("online:users");
+      socket.off("user:joined");
+      socket.off("user:left");
+      socket.off("connect_error");
       disconnectSocket();
     };
-  }, [user, navigate]);
+  }, [navigate, user]);
 
   function handleSend() {
     const text = input.trim();
-    if (!text) return;
+
+    if (!text) {
+      return;
+    }
 
     const socket = getSocket();
-    socket?.emit("message:send", { text });
+
+    if (!socket?.connected) {
+      setOnlineNotice("Connection lost. Please refresh.");
+      return;
+    }
+
+    socket.emit("message:send", { text });
     setInput("");
   }
 
@@ -92,12 +104,7 @@ export default function ChatPage() {
     disconnectSocket();
     localStorage.removeItem("chat_token");
     localStorage.removeItem("chat_user");
-    navigate("/login");
-  }
-
-  // แสดงผล Loading ระหว่างรอเช็ค Auth
-  if (loading) {
-    return <div className="flex h-screen items-center justify-center text-white">Loading...</div>;
+    navigate("/login", { replace: true });
   }
 
   return (
