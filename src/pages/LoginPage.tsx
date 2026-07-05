@@ -1,42 +1,25 @@
-import { useState, type FormEvent } from "react";
+import { type FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MessageCircle } from "lucide-react";
-import axios from "axios";
-import { checkBackendHealth, loginUser } from "../services/api";
+import { loginUser } from "../services/api";
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError("");
-    setLoading(true);
 
     try {
-      await checkBackendHealth();
-
       const data = await loginUser({ email, password });
       localStorage.setItem("chat_token", data.token);
       localStorage.setItem("chat_user", JSON.stringify(data.user));
-      navigate("/", { replace: true });
-    } catch (error) {
-      if (axios.isAxiosError(error) && !error.response) {
-        setError("Cannot connect to server. Please check backend URL or CORS.");
-        return;
-      }
-
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        setError("Invalid email or password.");
-        return;
-      }
-
-      setError("Login failed. Please try again.");
-    } finally {
-      setLoading(false);
+      navigate("/");
+    } catch {
+      setError("Login failed. Please check your email and password.");
     }
   }
 
@@ -91,20 +74,13 @@ export default function LoginPage() {
           required
         />
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-2xl bg-blue-600 px-4 py-3 font-bold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.99]"
-        >
-          {loading ? "Checking server..." : "Login"}
+        <button className="w-full rounded-2xl bg-blue-600 px-4 py-3 font-bold text-white transition hover:bg-blue-500 active:scale-[0.99]">
+          Login
         </button>
 
         <p className="mt-5 text-center text-sm text-zinc-400">
           No account?{" "}
-          <Link
-            to="/register"
-            className="font-bold text-blue-400 hover:text-blue-300"
-          >
+          <Link to="/register" className="font-bold text-blue-400 hover:text-blue-300">
             Create one
           </Link>
         </p>

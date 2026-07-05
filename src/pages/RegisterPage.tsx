@@ -1,8 +1,7 @@
-import { useState, type FormEvent } from "react";
+import { type FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MessageCircle } from "lucide-react";
-import axios from "axios";
-import { checkBackendHealth, registerUser } from "../services/api";
+import { registerUser } from "../services/api";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -10,34 +9,18 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError("");
-    setLoading(true);
 
     try {
-      await checkBackendHealth();
-
       const data = await registerUser({ username, email, password });
       localStorage.setItem("chat_token", data.token);
       localStorage.setItem("chat_user", JSON.stringify(data.user));
-      navigate("/", { replace: true });
-    } catch (error) {
-      if (axios.isAxiosError(error) && !error.response) {
-        setError("Cannot connect to server. Please check backend URL or CORS.");
-        return;
-      }
-
-      if (axios.isAxiosError(error) && error.response?.status === 409) {
-        setError("Username or email already exists.");
-        return;
-      }
-
-      setError("Register failed. Please try again.");
-    } finally {
-      setLoading(false);
+      navigate("/");
+    } catch {
+      setError("Register failed. Username or email may already exist.");
     }
   }
 
@@ -104,20 +87,13 @@ export default function RegisterPage() {
           required
         />
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-2xl bg-blue-600 px-4 py-3 font-bold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.99]"
-        >
-          {loading ? "Checking server..." : "Register"}
+        <button className="w-full rounded-2xl bg-blue-600 px-4 py-3 font-bold text-white transition hover:bg-blue-500 active:scale-[0.99]">
+          Register
         </button>
 
         <p className="mt-5 text-center text-sm text-zinc-400">
           Already have an account?{" "}
-          <Link
-            to="/login"
-            className="font-bold text-blue-400 hover:text-blue-300"
-          >
+          <Link to="/login" className="font-bold text-blue-400 hover:text-blue-300">
             Login
           </Link>
         </p>
