@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MessageCircle } from "lucide-react";
 import { registerUser } from "../services/api";
@@ -9,18 +9,22 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setLoading(true);
 
     try {
       const data = await registerUser({ username, email, password });
       localStorage.setItem("chat_token", data.token);
       localStorage.setItem("chat_user", JSON.stringify(data.user));
-      navigate("/");
+      navigate("/", { replace: true });
     } catch {
       setError("Register failed. Username or email may already exist.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -87,13 +91,20 @@ export default function RegisterPage() {
           required
         />
 
-        <button className="w-full rounded-2xl bg-blue-600 px-4 py-3 font-bold text-white transition hover:bg-blue-500 active:scale-[0.99]">
-          Register
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-2xl bg-blue-600 px-4 py-3 font-bold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.99]"
+        >
+          {loading ? "Creating..." : "Register"}
         </button>
 
         <p className="mt-5 text-center text-sm text-zinc-400">
           Already have an account?{" "}
-          <Link to="/login" className="font-bold text-blue-400 hover:text-blue-300">
+          <Link
+            to="/login"
+            className="font-bold text-blue-400 hover:text-blue-300"
+          >
             Login
           </Link>
         </p>

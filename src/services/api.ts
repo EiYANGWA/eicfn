@@ -25,10 +25,7 @@ export async function registerUser(data: {
   return response.data;
 }
 
-export async function loginUser(data: {
-  email: string;
-  password: string;
-}) {
+export async function loginUser(data: { email: string; password: string }) {
   const response = await api.post<AuthResponse>("/auth/login", data);
   return response.data;
 }
