@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ChatLayout from "../components/ChatLayout";
 import { getMessages } from "../services/api";
@@ -13,34 +13,42 @@ export default function ChatPage() {
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [input, setInput] = useState("");
   const [onlineNotice, setOnlineNotice] = useState("");
+  
+  // 1. ใช้ State แทน useMemo เพื่อให้ React สั่ง Re-render ได้ทันทีถ้าค่าเปลี่ยน
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const user = useMemo<AuthUser | null>(() => {
-  const raw = localStorage.getItem("chat_user");
-
-  // 1. เช็คว่ามีค่าไหม? และต้องไม่ใช่คำว่า "undefined"
-  if (!raw || raw === "undefined") {
-    return null;
-  }
-
-  // 2. ใช้ try-catch ครอบ JSON.parse เผื่อข้อมูลใน localStorage พัง
-  try {
-    return JSON.parse(raw);
-  } catch (error) {
-    console.error("Failed to parse chat_user from localStorage:", error);
-    return null; // ถ้า parse ไม่ได้ ก็ให้เป็น null ไปเลย
-  }
-}, []);
-
+  // ดึงข้อมูล User ตั้งแต่ Component เริ่ม Load
   useEffect(() => {
+    const raw = localStorage.getItem("chat_user");
     const token = localStorage.getItem("chat_token");
 
-    if (!token || !user) {
+    if (!raw || !token || raw === "undefined") {
       navigate("/login");
       return;
     }
 
-    getMessages().then(setMessages);
+    try {
+      setUser(JSON.parse(raw));
+      setLoading(false);
+    } catch (e) {
+      console.error("Auth parsing error:", e);
+      navigate("/login");
+    }
+  }, [navigate]);
 
+  // 2. จัดการ Socket และการดึงข้อความ (แยก Effect ออกมาเพื่อความสะอาด)
+  useEffect(() => {
+    if (!user) return;
+
+    const token = localStorage.getItem("chat_token") || "";
+
+    // ดึงข้อความ
+    getMessages()
+      .then(setMessages)
+      .catch((err) => console.error("Failed to fetch messages:", err));
+
+    // เชื่อมต่อ Socket
     const socket = connectSocket(token);
 
     socket.on("message:new", (message: Message) => {
@@ -62,27 +70,18 @@ export default function ChatPage() {
     });
 
     socket.on("connect_error", () => {
-      localStorage.removeItem("chat_token");
-      localStorage.removeItem("chat_user");
+      console.error("Socket connection error");
       navigate("/login");
     });
 
     return () => {
-      socket.off("message:new");
-      socket.off("online:users");
-      socket.off("user:joined");
-      socket.off("user:left");
-      socket.off("connect_error");
       disconnectSocket();
     };
-  }, [navigate, user]);
+  }, [user, navigate]);
 
   function handleSend() {
     const text = input.trim();
-
-    if (!text) {
-      return;
-    }
+    if (!text) return;
 
     const socket = getSocket();
     socket?.emit("message:send", { text });
@@ -94,6 +93,11 @@ export default function ChatPage() {
     localStorage.removeItem("chat_token");
     localStorage.removeItem("chat_user");
     navigate("/login");
+  }
+
+  // แสดงผล Loading ระหว่างรอเช็ค Auth
+  if (loading) {
+    return <div className="flex h-screen items-center justify-center text-white">Loading...</div>;
   }
 
   return (
